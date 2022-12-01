@@ -1,0 +1,425 @@
+---
+title: "GVA_Analysis_Final"
+author: "Jennifer Fortunato"
+date: "7/27/2020"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r R packAge2s needed}
+
+library(lme4)
+library(lmerTest)
+library(tidyverse)
+library(broom.mixed)
+library(rptR)
+library(readxl)
+
+```
+
+```{r Data and score conversion}
+
+#Load Data
+GVA <- read_excel("C:/Users/jaf13/OneDrive - The University of Alabama/Earley Lab/Experiments/Genetic Variation in Aggression (GVA)/Data/GVA_R_Data_Final.xlsx")
+View(GVA)
+str(GVA)
+
+#Make factors
+GVA$Age <- as.factor(GVA$Age)
+GVA$Age2 <- as.factor(GVA$Age2)
+GVA$Genotype <- as.factor(GVA$Genotype)
+GVA$Video <- as.factor(GVA$Video)
+GVA$Time <- as.factor(GVA$Time)
+GVA$Observer <- as.factor(GVA$Observer)
+GVA$Individual_ID <- as.factor(GVA$Individual_ID)
+
+#Subset GVA data to just juveniles
+GVA_juv <- subset(GVA, Age2 == "J")
+
+#Subset GVA data to just Adults
+GVA_adult <- subset(GVA, Age2 == "A")
+
+```
+
+## Genotype {.tabset}
+
+### Both Age2s
+
+```{r Models}
+
+#Genotype model
+lm1 <- lmer((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time + (1|Genotype), data = GVA, REML = TRUE) #The slash partions out each Age2 into the two times
+summary(lm1)
+tidy(lm1) #Pretty table
+
+
+#Fixed Effects model
+lm2 <- lm((Aggression + 1)^(1/3) ~ Age2 + Age2/Time, data = GVA)
+summary(lm2)
+tidy(lm2)
+
+
+#Compare Genotype Model with Fixed Effect Model
+anova(lm1, lm2)
+
+#Get Variance Components
+vc1 <- VarCorr(lm1) 
+print(vc1,comp=c("Variance","Std.Dev."),digits=2)
+
+#Calculate Heritability from numbers printed in above code 
+
+0.025/(0.025 + 0.367)
+
+#Standard Error Estimate (lm1) [also gives heritability]
+rpt_lm1 <-  rptGaussian((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time + (1|Genotype), "Genotype", data = GVA, CI = 0.95, nboot = 1000)
+
+rpt_lm1
+```
+
+
+### Juveniles
+```{r}
+#Genotype(juvenile) model
+lm1_juv <- lmer((Aggression + 1)^(1/3) ~ Time + (1|Genotype), data = GVA_juv, REML = TRUE)
+summary(lm1_juv)
+tidy(lm1_juv) #Pretty table
+
+#Fixed Effects (juvenile) model
+lm2_juv <- lm(Aggression ~ Time, data = GVA_juv)
+summary(lm2_juv)
+tidy(lm2_juv) #Pretty table
+
+#Compare Genotype Model with Fixed Effect Model
+anova(lm1_juv, lm2_juv)
+
+#Get Variance Components
+vc1_juv <- VarCorr(lm1_juv) 
+print(vc1_juv,comp=c("Variance","Std.Dev."),digits=2)
+
+#Calculate Heritability from numbers printed in above code
+0.085/(0.085 + 0.539)
+
+#Standard Error Estimate (lm1_juv)
+rpt_lm1_juv <-  rptGaussian((Aggression + 1)^(1/3) ~ Time + (1|Genotype), "Genotype", data = GVA_juv, CI = 0.95, nboot = 1000)
+
+rpt_lm1_juv
+```
+
+### Adults
+
+```{r}
+#Genotype(adult) model
+lm1_adult <- lmer((Aggression + 1)^(1/3) ~ Time + (1|Genotype), data = GVA_adult, REML = TRUE)
+summary(lm1_adult)
+tidy(lm1_adult) #Pretty table
+
+
+#Fixed Effects(adult) model
+lm2_adult <- lm((Aggression + 1)^(1/3) ~ Time, data = GVA_adult)
+summary(lm2_adult)
+
+#Compare Genotype(adult) Model with Fixed Effect(adult) Model
+anova(lm1_adult, lm2_adult)
+
+#Get Variance Components
+vc1_adult <- VarCorr(lm1_adult) 
+print(vc1_adult,comp=c("Variance","Std.Dev."),digits=2)
+
+#Calculate Heritability from numbers printed in above code
+
+0.0071/(0.0071 + 0.1573)
+
+#Standard Error Estimate (lm1_adult)
+rpt_lm1_adult <-  rptGaussian((Aggression + 1)^(1/3) ~ Time + (1|Genotype), "Genotype", data = GVA_adult, CI = 0.95, nboot = 1000)
+
+rpt_lm1_adult
+```
+
+## Genotype by Age2 {.tabset}
+
+### Genotype-by-Age2
+```{r}
+#Full Model 
+lm3 <- lmer((Aggression + 1)^(1/3) ~ Age2 + Age2/Time + (1|Genotype) + (Age2|Genotype), data = GVA, REML = TRUE) 
+beta <- coef(lm3)$Genotype
+colnames(beta) <- c("intercept", "slope")
+beta
+summary(beta)
+summary(lm3)
+tidy(lm3)
+logLik_lm3 <- logLik(lm3, REML= TRUE)
+
+#Full Model 
+lm3.1 <- lmer((Aggression + 1)^(1/3) ~ Age2+ Age2/Time + (Age2|Genotype), data = GVA) 
+beta <- coef(lm3)$Genotype
+colnames(beta) <- c("intercept", "slope")
+beta
+summary(beta)
+
+#Genotype Model
+lm1 <- lmer((Aggression + 1)^(1/3) ~ Age2 + Age2/Time + (1|Genotype), data = GVA, REML = TRUE)
+summary(lm1)
+tidy(lm1)
+logLik_lm1 <- logLik(lm1, REML= TRUE)
+
+#Compare Full Model with Genotype Model
+anova(lm3, lm1)
+
+#Get Variance Components from Full Model
+vc2 <- VarCorr(lm3) 
+print(vc2,comp=c("Variance","Std.Dev."),digits=3)
+
+#Calculate Heritability from numbers printed in above code
+0.04361/(0.04361 + 0.00275 + 0.34703)
+
+#Standard Error Estimate (lm3)
+rpt_lm3 <-  rptGaussian((Aggression + 1)^(1/3) ~ Age2 + Age2/Time +  (Age2|Genotype), "Genotype", data = GVA, CI = 0.95, nboot = 1000)
+
+rpt_lm3
+
+```
+
+### slopes
+```{r}
+slopes <- ranef(lm3.1)
+slopes
+?coef
+GVA$coef[GVA$Genotype=="BWS21"] <- -0.33290648
+GVA$coef[GVA$Genotype=="CRWL1"] <- 0.11835264
+GVA$coef[GVA$Genotype=="EPP3"] <- 0.15103375
+GVA$coef[GVA$Genotype=="EPP5"] <- -0.25773232
+GVA$coef[GVA$Genotype=="IRP4-9"] <- -0.30218659
+GVA$coef[GVA$Genotype=="LK4"] <- 0.09168643
+GVA$coef[GVA$Genotype=="OY6"] <- 0.03029219
+GVA$coef[GVA$Genotype=="RHL3-14"] <- 0.50146038
+
+lmer(coef ~ ((Aggression+1)^(1/3)) + (1|Genotype) , data = GVA, REML=TRUE)
+
+```
+
+## Individual Analysis {.tabset}
+
+### Individual - All
+```{r}
+#Individual Model
+lm4 <- lmer((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time + (1|Individual_ID) , data = GVA)
+summary(lm4)
+tidy(lm4)
+logLik_lm4 <- logLik(lm4, REML= TRUE)
+logLik_lm4
+#Fixed Effect Model
+lm2 <- lm((Aggression + 1)^(1/3) ~ Age2 + Age2/Time , data = GVA)
+summary(lm2)
+tidy(lm2)
+logLik_lm2 <- logLik(lm2, REML= TRUE)
+
+#Compare 4 and 5 (Is there among individual variation b/c you are taking indvidual out of the equation)
+anova(lm4, lm2)
+
+#Variance for lm4 
+vc3 <- VarCorr(lm4) 
+print(vc3,comp=c("Variance","Std.Dev."),digits=3)
+
+#Repeatability for lm4
+0.0774/ (0.0774 + 0.3126)
+ 
+
+#Standard Error Estimate (lm4)
+rpt_lm4 <- rptGaussian((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time + (1|Individual_ID), "Individual_ID" , data = GVA, CI = 0.95, nboot=1000)
+
+rpt_lm4
+```
+
+
+
+###juvenile Individuals
+```{r}
+lm4_juv <- lmer((Aggression + 1)^(1/3) ~ Time + (1|Individual_ID) , data = GVA_juv)
+summary(lm4_juv)
+tidy(lm4_juv)
+logLik_lm4_juv <- logLik(lm4_juv, REML= TRUE)
+
+lm2_juv <- lm((Aggression + 1)^(1/3) ~ Time , data = GVA_juv)
+summary(lm2_juv)
+tidy(lm2_juv)
+logLik_lm2_juv <- logLik(lm2_juv, REML= TRUE)
+
+anova(lm4_juv, lm2_juv)
+
+#Variance for lm4_juv
+vc3_juv <- VarCorr(lm4_juv) 
+print(vc3_juv,comp=c("Variance","Std.Dev."),digits=3)
+
+#Repeatability for juveniles
+0.307/(0.307+0.301)
+
+#Standard Error Estimate (lm4_juv)
+rpt_lm4_juv <- rptGaussian((Aggression + 1)^(1/3) ~ Time + (1|Individual_ID) , "Individual_ID" , data = GVA_juv, CI = 0.95, nboot=1000)
+
+rpt_lm4_juv
+```
+
+###Adult Individuals
+```{r}
+lm4_adult <- lmer((Aggression + 1)^(1/3) ~ Time + (1|Individual_ID) , data = GVA_adult)
+summary(lm4_adult)
+tidy(lm4_adult)
+logLik_lm4_adult <- logLik(lm4_adult, REML= TRUE)
+
+lm2_adult <- lm((Aggression + 1)^(1/3) ~ Time , data = GVA_adult)
+summary(lm2_adult)
+tidy(lm2_adult)
+logLik_lm2_adult <- logLik(lm2_adult, REML= TRUE)
+
+anova(lm4_adult, lm2_adult)
+
+#Variance for lm4_adult
+vc3_adult <- VarCorr(lm4_adult) 
+print(vc3_adult,comp=c("Variance","Std.Dev."),digits=3)
+
+#Repeatability for adult
+0.0553/(0.0553+0.1074)
+
+#Standard Error Estimate (lm4_adult)
+rpt_lm4_adult <- rptGaussian((Aggression + 1)^(1/3) ~ Time + (1|Individual_ID) , "Individual_ID" , data = GVA_adult, CI = 0.95, nboot=1000)
+
+rpt_lm4_adult
+```
+
+### Individual-by-Age2
+```{r}
+#Full Individual Model
+lm5 <- lmer((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time + (1|Individual_ID) + (Age2|Individual_ID), data = GVA, REML = TRUE)
+summary(lm5)
+tidy(lm5)
+logLik_lm5 <- logLik(lm5, REML = TRUE)
+
+lm5_IA <- lmer((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time +  (1|Age2:Individual_ID), data = GVA, REML = TRUE)
+summary(lm5_IA)
+
+#Individual Model
+lm4 <- lmer((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time + (1|Individual_ID), data = GVA, REML = TRUE)
+summary(lm4)
+tidy(lm4)
+logLik_lm4 <- logLik(lm4, REML= TRUE)
+
+#chi-square
+2*(logLik_lm4-logLik_lm5)
+
+#https://www.graphpad.com/quickcalcs/pvalue1.cfm to get p-value from chi square value (degrees of freedom will be 1!)
+
+#compare 4 and 6 (Slope because you are taking Age2 out of the Equation and not Individual)
+
+anova(lm5, lm4)
+
+#Variance for lm6 
+vc5 <- VarCorr(lm5) 
+print(vc5,comp=c("Variance","Std.Dev."),digits=3)
+
+#Repeatability for lm6 
+0.182/ (0.182 + 0.000 + 0.203) #47% of the variation in slopes is due to among individual differences
+
+rpt_lm5_IA <- rptGaussian((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time +  (Age2|Individual_ID) , "Individual_ID" , data = GVA, CI = 0.95, nboot=1000)
+
+rpt_lm5_IA
+```
+
+### Slopes vs Indivdual Aggression
+```{r}
+lm5.1 <- lmer((Aggression + 1)^(1/3) ~ Age2 +  Age2/Time +  (Age2|Individual_ID), data = GVA, REML = TRUE)
+summary(lm5.1)
+indiv_slope <- ranef(lm5.1)
+indiv_slope
+view(GVA)
+GVA$Indiv_Slope[GVA$Individual_ID=="29810"] <-  0.104301329
+GVA$Indiv_Slope[GVA$Individual_ID=="29850"] <- -0.069787917
+GVA$Indiv_Slope[GVA$Individual_ID=="29851"] <-  0.235225528
+GVA$Indiv_Slope[GVA$Individual_ID=="29852"] <- -0.022493024
+GVA$Indiv_Slope[GVA$Individual_ID=="29857"] <-  0.019890915
+GVA$Indiv_Slope[GVA$Individual_ID=="29875"] <-  0.074510918
+GVA$Indiv_Slope[GVA$Individual_ID=="29876"] <- -1.313822183
+GVA$Indiv_Slope[GVA$Individual_ID=="29892"] <- -0.042925892
+GVA$Indiv_Slope[GVA$Individual_ID=="29893"] <- -1.320992040
+GVA$Indiv_Slope[GVA$Individual_ID=="29896"] <-  0.594815935
+GVA$Indiv_Slope[GVA$Individual_ID=="29902"] <- -0.753534303
+GVA$Indiv_Slope[GVA$Individual_ID=="29903"] <- -1.128548531
+GVA$Indiv_Slope[GVA$Individual_ID=="29904"] <- -0.654959270
+GVA$Indiv_Slope[GVA$Individual_ID=="29905"] <- -0.095398722
+GVA$Indiv_Slope[GVA$Individual_ID=="29921"] <-  0.075963717 
+GVA$Indiv_Slope[GVA$Individual_ID=="29922"] <-  0.322712392
+GVA$Indiv_Slope[GVA$Individual_ID=="29923"] <-  0.192975428
+GVA$Indiv_Slope[GVA$Individual_ID=="29924"] <- -0.146399571
+GVA$Indiv_Slope[GVA$Individual_ID=="29925"] <- -0.555082627
+GVA$Indiv_Slope[GVA$Individual_ID=="29926"] <-  0.116047018
+GVA$Indiv_Slope[GVA$Individual_ID=="29927"] <- -1.062343158 
+GVA$Indiv_Slope[GVA$Individual_ID=="29984"] <- -0.463023624
+GVA$Indiv_Slope[GVA$Individual_ID=="30027"] <- -0.724577652
+GVA$Indiv_Slope[GVA$Individual_ID=="30063"] <-  0.675541791
+GVA$Indiv_Slope[GVA$Individual_ID=="30064"] <-  0.942291846
+GVA$Indiv_Slope[GVA$Individual_ID=="30066"] <-  0.183620340
+GVA$Indiv_Slope[GVA$Individual_ID=="30095"] <-  0.845178845
+GVA$Indiv_Slope[GVA$Individual_ID=="30122"] <-  0.193882233
+GVA$Indiv_Slope[GVA$Individual_ID=="30132"] <- -0.077765688
+GVA$Indiv_Slope[GVA$Individual_ID=="30146"] <-  0.183561745
+GVA$Indiv_Slope[GVA$Individual_ID=="30147"] <-  0.042752775
+GVA$Indiv_Slope[GVA$Individual_ID=="30218"] <-  0.163892601
+GVA$Indiv_Slope[GVA$Individual_ID=="30219"] <-  0.943306763
+GVA$Indiv_Slope[GVA$Individual_ID=="30222"] <-  0.123162405
+GVA$Indiv_Slope[GVA$Individual_ID=="30223"] <-  0.017523486
+GVA$Indiv_Slope[GVA$Individual_ID=="30224"] <-  0.168321699
+GVA$Indiv_Slope[GVA$Individual_ID=="30228"] <- -0.035141807
+GVA$Indiv_Slope[GVA$Individual_ID=="30230"] <- -0.077299633
+GVA$Indiv_Slope[GVA$Individual_ID=="30232"] <- -0.126192566
+GVA$Indiv_Slope[GVA$Individual_ID=="30233"] <-  0.126268276
+GVA$Indiv_Slope[GVA$Individual_ID=="30234"] <-  0.218748316
+GVA$Indiv_Slope[GVA$Individual_ID=="30235"] <-  0.223167954
+GVA$Indiv_Slope[GVA$Individual_ID=="30236"] <- -0.389854692
+GVA$Indiv_Slope[GVA$Individual_ID=="30256"] <-  0.068255696
+GVA$Indiv_Slope[GVA$Individual_ID=="30300"] <-  0.287248915
+GVA$Indiv_Slope[GVA$Individual_ID=="30301"] <-  0.673370592
+GVA$Indiv_Slope[GVA$Individual_ID=="30326"] <-  0.552871697
+GVA$Indiv_Slope[GVA$Individual_ID=="30371"] <-  0.017422516
+GVA$Indiv_Slope[GVA$Individual_ID=="30375"] <-  0.035602903 
+GVA$Indiv_Slope[GVA$Individual_ID=="30376"] <- -1.420042099
+GVA$Indiv_Slope[GVA$Individual_ID=="30422"] <-  0.285878561
+GVA$Indiv_Slope[GVA$Individual_ID=="30435"] <-  0.200362322
+GVA$Indiv_Slope[GVA$Individual_ID=="30449"] <- -0.537481484
+GVA$Indiv_Slope[GVA$Individual_ID=="30477"] <-  0.410300113
+GVA$Indiv_Slope[GVA$Individual_ID=="30566"] <-  0.311267406
+GVA$Indiv_Slope[GVA$Individual_ID=="30567"] <-  0.074024130
+GVA$Indiv_Slope[GVA$Individual_ID=="30568"] <-  0.185021170
+GVA$Indiv_Slope[GVA$Individual_ID=="30641"] <-  0.160337220
+GVA$Indiv_Slope[GVA$Individual_ID=="30642"] <- -0.002033983
+GVA$Indiv_Slope[GVA$Individual_ID=="30643"] <-  0.657718836
+GVA$Indiv_Slope[GVA$Individual_ID=="30644"] <-  0.254222308
+GVA$Indiv_Slope[GVA$Individual_ID=="30801"] <-  0.015584054
+GVA$Indiv_Slope[GVA$Individual_ID=="30822"] <- -0.148636421
+
+#Subset GVA data to just juveniles
+GVA_juv <- subset(GVA, Age2 == "J")
+
+#Subset GVA_juv data to juveniles Time 1
+GVA_juv_1 <- subset(GVA_juv, Time == "1")
+View(GVA_juv_1)
+
+#Subset GVA_juv data to juveniles Time 1
+GVA_juv_2 <- subset(GVA_juv, Time == "2")
+View(GVA_juv_2)
+
+
+agg_slopes_1 <- lm(Indiv_Slope ~ Aggression + (1|Genotype), data= GVA_juv_1)
+summary(agg_slopes_1)
+
+
+agg_slopes_2 <- lm(Indiv_Slope ~ Aggression + (1|Genotype), data= GVA_juv_2)
+summary(agg_slopes_2)
+
+
+write.csv(GVA, file = "C://Users//jaf13//Documents//gva1.csv")
+```
